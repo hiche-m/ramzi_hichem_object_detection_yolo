@@ -14,6 +14,7 @@ class Screen extends StatefulWidget {
   final List<CameraDescription>? cm;
 
   @override
+  // ignore: no_logic_in_create_state
   State<Screen> createState() => _ScreenState(cameras: cm);
 }
 
@@ -27,6 +28,9 @@ class _ScreenState extends State<Screen> {
   bool _isReady = true;
   bool detecting = false;
   bool buttonHold = false;
+  bool video = false;
+  bool capturing = false;
+  bool pausedCapturing = false;
 
   double height = 0;
   double width = 0;
@@ -91,7 +95,7 @@ class _ScreenState extends State<Screen> {
     height = MediaQuery.sizeOf(context).height;
 
     if (!_isReady) {
-      return Text("Failed");
+      return const Text("Failed");
     }
     return Scaffold(
       body: Stack(
@@ -178,13 +182,35 @@ class _ScreenState extends State<Screen> {
             width: width,
             child: Column(
               children: [
-                Expanded(
+                const Expanded(
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text("Flash"),
-                      Text("Settings"),
+                      Expanded(
+                        child: FittedBox(
+                          fit: BoxFit.contain,
+                          child: Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: FaIcon(
+                              IconDataSolid(0xe0b7),
+                              color: Colors.white,
+                              semanticLabel: "Flashlight",
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: FittedBox(
+                          fit: BoxFit.contain,
+                          child: Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: FaIcon(
+                              IconDataSolid(0xf013),
+                              color: Colors.white,
+                              semanticLabel: "Settings",
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -201,47 +227,162 @@ class _ScreenState extends State<Screen> {
                           color: Colors.black.withOpacity(0.75),
                           child: Row(
                             children: [
-                              Expanded(
-                                child: FaIcon(
-                                  FontAwesomeIcons.heart,
-                                  size: 50.0,
-                                  color: Colors.red,
-                                ),
-                              ),
-                              LayoutBuilder(builder: (context, constraints) {
-                                final double squareSize = min(
-                                    constraints.maxWidth,
-                                    constraints.maxHeight);
-                                return GestureDetector(
-                                  onTapDown: (details) => setState(() {
-                                    buttonHold = true;
-                                  }),
-                                  onTapUp: (details) => setState(() {
-                                    buttonHold = false;
-                                  }),
-                                  child: Container(
-                                    height: squareSize - 20,
-                                    width: squareSize - 20,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                          color: Colors.white, width: 3.5),
-                                    ),
-                                    child: FractionallySizedBox(
-                                      heightFactor: 0.9,
-                                      child: FittedBox(
-                                        fit: BoxFit.contain,
-                                        child: CircleAvatar(
-                                            backgroundColor: buttonHold
-                                                ? Colors.grey
-                                                : Colors.white),
+                              //Left Action
+                              const Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.only(left: 25.0),
+                                  child: FractionallySizedBox(
+                                    heightFactor: 0.3,
+                                    child: FittedBox(
+                                      fit: BoxFit.fitHeight,
+                                      alignment: Alignment.centerLeft,
+                                      child: FaIcon(
+                                        FontAwesomeIcons.photoFilm,
+                                        color: Colors.white,
                                       ),
                                     ),
                                   ),
-                                );
-                              }),
+                                ),
+                              ),
+                              //Middle Acion
                               Expanded(
-                                child: Text("Picture"),
+                                child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                  final double squareSize = min(
+                                      constraints.maxWidth,
+                                      constraints.maxHeight);
+                                  return GestureDetector(
+                                    onPanDown: (D) => setState(() {
+                                      buttonHold = true;
+                                    }),
+                                    onPanCancel: () => setState(() {
+                                      if (video) {
+                                        capturing = !capturing;
+                                        buttonHold = false;
+                                      } else {
+                                        if (capturing) {
+                                          capturing = false;
+                                        } else {
+                                          buttonHold = false;
+                                        }
+                                      }
+                                    }),
+                                    onLongPressStart: !video
+                                        ? (D) {
+                                            setState(() {
+                                              video = true;
+                                              buttonHold = false;
+                                              capturing = true;
+                                            });
+                                          }
+                                        : (D) {},
+                                    child: AnimatedContainer(
+                                      duration:
+                                          const Duration(milliseconds: 100),
+                                      height: squareSize - 20,
+                                      width: squareSize - 20,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                            color: capturing
+                                                ? Colors.transparent
+                                                : Colors.white,
+                                            width: capturing ? 0 : 3.5),
+                                      ),
+                                      child: AnimatedFractionallySizedBox(
+                                        duration:
+                                            const Duration(milliseconds: 100),
+                                        heightFactor: capturing ? 1 : 0.9,
+                                        child: FittedBox(
+                                          fit: BoxFit.contain,
+                                          child: CircleAvatar(
+                                            backgroundColor: video
+                                                ? buttonHold
+                                                    ? Colors.redAccent[700]
+                                                    : Colors.red
+                                                : buttonHold
+                                                    ? Colors.grey
+                                                    : Colors.white,
+                                            child: AnimatedScale(
+                                              scale: capturing ? 1 : 0,
+                                              duration: const Duration(
+                                                  milliseconds: 100),
+                                              child: const Icon(
+                                                Icons.stop,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }),
+                              ),
+                              //Right Action
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: 25.0),
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        if (!capturing) {
+                                          video = !video;
+                                        } else {
+                                          pausedCapturing = !pausedCapturing;
+                                        }
+                                      });
+                                    },
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        AnimatedFractionallySizedBox(
+                                          duration:
+                                              const Duration(milliseconds: 100),
+                                          heightFactor: !capturing ? 0 : 0.4,
+                                          child: FittedBox(
+                                            fit: BoxFit.fitHeight,
+                                            alignment: Alignment.centerRight,
+                                            child: Icon(
+                                              pausedCapturing
+                                                  ? Icons.play_arrow_rounded
+                                                  : Icons.pause,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                        AnimatedFractionallySizedBox(
+                                          duration:
+                                              const Duration(milliseconds: 100),
+                                          heightFactor:
+                                              capturing || video ? 0 : 0.3,
+                                          child: const FittedBox(
+                                            fit: BoxFit.fitHeight,
+                                            alignment: Alignment.centerRight,
+                                            child: FaIcon(
+                                              IconDataSolid(0xf03d),
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                        AnimatedFractionallySizedBox(
+                                          duration:
+                                              const Duration(milliseconds: 100),
+                                          heightFactor:
+                                              capturing || !video ? 0 : 0.3,
+                                          child: const FittedBox(
+                                            fit: BoxFit.fitHeight,
+                                            alignment: Alignment.centerRight,
+                                            child: FaIcon(
+                                              IconDataSolid(0xf083),
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ),
                             ],
                           ),
