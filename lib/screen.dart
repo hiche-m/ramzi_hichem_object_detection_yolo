@@ -7,6 +7,7 @@ import 'package:camera/camera.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'screen_viewmodel.dart';
+import 'settings_dialog.dart';
 
 class Screen extends StatefulWidget {
   const Screen({required this.cm, super.key});
@@ -182,12 +183,13 @@ class _ScreenState extends State<Screen> {
             width: width,
             child: Column(
               children: [
-                const Expanded(
+                Expanded(
                   child: Row(
                     children: [
-                      Expanded(
+                      const Expanded(
                         child: FittedBox(
                           fit: BoxFit.contain,
+                          alignment: Alignment.centerLeft,
                           child: Padding(
                             padding: EdgeInsets.all(8.0),
                             child: FaIcon(
@@ -199,14 +201,23 @@ class _ScreenState extends State<Screen> {
                         ),
                       ),
                       Expanded(
-                        child: FittedBox(
-                          fit: BoxFit.contain,
-                          child: Padding(
-                            padding: EdgeInsets.all(8.0),
-                            child: FaIcon(
-                              IconDataSolid(0xf013),
-                              color: Colors.white,
-                              semanticLabel: "Settings",
+                        child: GestureDetector(
+                          onTap: () {
+                            showDialog(
+                                context: context,
+                                builder: (context) =>
+                                    Settings(height: height, width: width));
+                          },
+                          child: const FittedBox(
+                            fit: BoxFit.contain,
+                            alignment: Alignment.centerRight,
+                            child: Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: FaIcon(
+                                IconDataSolid(0xf013),
+                                color: Colors.white,
+                                semanticLabel: "Settings",
+                              ),
                             ),
                           ),
                         ),
@@ -228,19 +239,39 @@ class _ScreenState extends State<Screen> {
                           child: Row(
                             children: [
                               //Left Action
-                              const Expanded(
+                              Expanded(
                                 child: Padding(
-                                  padding: EdgeInsets.only(left: 25.0),
-                                  child: FractionallySizedBox(
-                                    heightFactor: 0.3,
-                                    child: FittedBox(
-                                      fit: BoxFit.fitHeight,
-                                      alignment: Alignment.centerLeft,
-                                      child: FaIcon(
-                                        FontAwesomeIcons.photoFilm,
-                                        color: Colors.white,
+                                  padding: const EdgeInsets.only(left: 25.0),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.start,
+                                    children: [
+                                      AnimatedFractionallySizedBox(
+                                        duration:
+                                            const Duration(milliseconds: 100),
+                                        heightFactor: !capturing ? 0 : 0.3,
+                                        child: const FittedBox(
+                                          fit: BoxFit.fitHeight,
+                                          alignment: Alignment.centerLeft,
+                                          child: FaIcon(
+                                            FontAwesomeIcons.repeat,
+                                            color: Colors.white,
+                                          ),
+                                        ),
                                       ),
-                                    ),
+                                      AnimatedFractionallySizedBox(
+                                        duration:
+                                            const Duration(milliseconds: 100),
+                                        heightFactor: capturing ? 0 : 0.3,
+                                        child: const FittedBox(
+                                          fit: BoxFit.fitHeight,
+                                          alignment: Alignment.centerLeft,
+                                          child: FaIcon(
+                                            FontAwesomeIcons.photoFilm,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -254,6 +285,9 @@ class _ScreenState extends State<Screen> {
                                   return GestureDetector(
                                     onPanDown: (D) => setState(() {
                                       buttonHold = true;
+                                      if (capturing && pausedCapturing) {
+                                        pausedCapturing = false;
+                                      }
                                     }),
                                     onPanCancel: () => setState(() {
                                       if (video) {
