@@ -2,11 +2,9 @@ import 'dart:async';
 import 'dart:convert';
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:html';
-import 'dart:math';
 import 'dart:typed_data';
-
-import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'utils.dart';
 
 class ScreenVM {
   static final List<String> labels = [
@@ -38,11 +36,6 @@ class ScreenVM {
     'z'
   ];
 
-  static final StreamController<bool> _detectingController =
-      StreamController<bool>.broadcast();
-
-  static Stream<bool> get getDetecting => _detectingController.stream;
-
   static final StreamController<Map> _coordinatesController =
       StreamController<Map>.broadcast();
 
@@ -50,21 +43,18 @@ class ScreenVM {
 
   static updateCoordinates(
       VideoElement videoElement, List<double> screen) async {
-    double threshold = 35;
+    double threshold = 60;
     await Future.delayed(const Duration(milliseconds: 2000));
-    _detectingController.add(false);
     while (true) {
-      await Future.delayed(const Duration(milliseconds: 250));
-      _detectingController.add(true);
-
-      var res = await ScreenVM().captureFrame(videoElement);
+      await Future.delayed(const Duration(milliseconds: 500));
+      var frame = await ScreenVM.captureFrame(videoElement);
+      var res = await predict(frame);
       Map map = jsonDecode(res);
       var coordinates = map["coordinates"] ?? [];
       var ys = map["labels"] ?? [];
 
       if (coordinates.length > 0 && ys.length > 0) {
         if (coordinates.last.last * 100 < threshold) {
-          _detectingController.add(false);
         } else {
           List newCords = scaledCordinates(
               coordinates[0].map((number) => number * 100).toList(), screen, [
@@ -73,7 +63,6 @@ class ScreenVM {
           ]);
           _coordinatesController
               .add({"coordinates": newCords, "label": labels[ys[0]]});
-          _detectingController.add(true);
         }
       }
     }
@@ -103,22 +92,37 @@ class ScreenVM {
     double adjustedXMax = xMaxPixel - xOffset;
     double adjustedYMax = yMaxPixel - yOffset;
 
-    if (adjustedXMin < 0 || adjustedXMin > screenSize[1]) {
-      adjustedXMin = 0;
+    if (adjustedXMin < 0) {
+      adjustedXMin = 1;
     }
-    if (adjustedYMin < 0 || adjustedYMin > screenSize[0]) {
-      adjustedYMin = 0;
+    if (adjustedXMin > screenSize[1]) {
+      adjustedXMin = screenSize[1];
     }
-    if (adjustedXMax < 0 || adjustedXMax > screenSize[1]) {
-      adjustedXMax = 0;
+
+    if (adjustedYMin < 0) {
+      adjustedYMin = 1;
     }
-    if (adjustedYMax < 0 || adjustedYMax > screenSize[0]) {
-      adjustedYMax = 0;
+    if (adjustedYMin > screenSize[0]) {
+      adjustedYMin = screenSize[0];
+    }
+
+    if (adjustedXMax < 0) {
+      adjustedXMax = 1;
+    }
+    if (adjustedXMax > screenSize[1]) {
+      adjustedXMax = screenSize[1];
+    }
+
+    if (adjustedYMax < 0) {
+      adjustedYMax = 1;
+    }
+    if (adjustedYMax > screenSize[0]) {
+      adjustedYMax = screenSize[0];
     }
     return [adjustedXMin, adjustedYMin, adjustedXMax, adjustedYMax, accuracy];
   }
 
-  Future predict(imageBytes) async {
+  static Future predict(imageBytes) async {
     final url = Uri.parse('http://127.0.0.1:4500/predict');
 
     // Create the multipart request
@@ -134,7 +138,7 @@ class ScreenVM {
     return response.body;
   }
 
-  Future captureFrame(VideoElement videoElement) async {
+  static Future<Uint8List> captureFrame(VideoElement videoElement) async {
     // Create a canvas element with the same dimensions as the video
     CanvasElement canvasElement = CanvasElement(
       width: videoElement.videoWidth,
@@ -145,37 +149,10 @@ class ScreenVM {
     canvasElement.context2D.drawImage(videoElement, 0, 0);
 
     // Get the data URL of the canvas image
-    String imageDataUrl = canvasElement.toDataUrl('image/png');
+    String imageDataUrl = canvasElement.toDataUrl('image/jpg');
 
-    Uint8List? data = await createImageFromDataUrl(imageDataUrl);
+    Uint8List data = await Utils.createImageFromDataUrl(imageDataUrl);
 
-    var result = await predict(data);
-
-    return result;
-  }
-
-  Future<Uint8List?> createImageFromDataUrl(String imageDataUrl) async {
-    // Convert the data URL to bytes
-    String base64 = imageDataUrl.split(',')[1];
-    Uint8List bytes = base64Decode(base64);
-
-    return bytes;
-  }
-
-  static Color generateRandomColor() {
-    final random = Random();
-
-    // Generate random hue value between 0 and 360
-    final hue = random.nextInt(360);
-
-    // Generate a random saturation and value
-    final saturation = random.nextDouble();
-    final value = random.nextDouble();
-
-    // Create a Color object with the generated HSV values
-    final color =
-        HSVColor.fromAHSV(1.0, hue.toDouble(), saturation, value).toColor();
-
-    return color;
+    return data;
   }
 }

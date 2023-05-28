@@ -9,6 +9,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import 'screen_viewmodel.dart';
 import 'settings_dialog.dart';
+import 'utils.dart';
 
 class Screen extends StatefulWidget {
   const Screen({required this.cm, super.key});
@@ -32,7 +33,6 @@ class _ScreenState extends State<Screen> {
   late VideoElement _webcamVideoElement;
 
   bool _isReady = true;
-  bool detecting = false;
   bool buttonHold = false;
   bool video = false;
   bool capturing = false;
@@ -48,70 +48,109 @@ class _ScreenState extends State<Screen> {
 
   Color colorC = Colors.green;
 
+  int timer = 0;
+
+  List<Blob> videoChunks = [];
+
+  late MediaRecorder mediaRecorder;
+
   @override
   void initState() {
     super.initState();
-    initCam();
-    if (!kIsWeb) init();
+    init();
   }
 
   @override
   void didChangeDependencies() {
     width = MediaQuery.sizeOf(context).width;
     height = MediaQuery.sizeOf(context).height;
-    fetchData();
+    if (kIsWeb) {
+      fetchDataWeb();
+    }
     super.didChangeDependencies();
   }
 
-  void fetchData() {
+  void fetchDataWeb() {
     ScreenVM.updateCoordinates(_webcamVideoElement, [height, width]);
-    ScreenVM.getDetecting.listen((value) {
-      setState(() {
-        detecting = value;
-        colorC = ScreenVM.generateRandomColor();
-      });
-    });
     ScreenVM.getCoordinates.listen((value) {
+      resetTimer();
       setState(() {
         coordinates = value["coordinates"];
         label = value["label"];
+        colorC = Utils.generateRandomColor();
       });
     });
+  }
+
+  void resetTimer() async {
+    setState(() {
+      timer = 5;
+    });
+    while (timer > 0) {
+      setState(() {
+        timer -= 1;
+      });
+      await Future.delayed(const Duration(seconds: 1));
+    }
   }
 
   void init() {
-    setState(() {
-      _isReady = false;
-    });
-    controller = CameraController(widget.cm![0], ResolutionPreset.medium);
-    controller?.initialize().then((_) {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _isReady = true;
-      });
-    }).catchError((e) {
+    if (!kIsWeb) {
       setState(() {
         _isReady = false;
       });
-    });
-  }
+      controller = CameraController(widget.cm![0], ResolutionPreset.medium);
+      controller?.initialize().then((_) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _isReady = true;
+        });
+      }).catchError((e) {
+        setState(() {
+          _isReady = false;
+        });
+      });
+    } else {
+      _webcamVideoElement = VideoElement();
+      _webcamVideoElement.style.width = "100%";
+      _webcamVideoElement.style.height = "100%";
 
-  initCam() {
-    _webcamVideoElement = VideoElement();
-    _webcamVideoElement.style.width = "100%";
-    _webcamVideoElement.style.height = "100%";
+      ui.platformViewRegistry.registerViewFactory(
+          'webcamVideoElement', (int viewId) => _webcamVideoElement);
 
-    ui.platformViewRegistry.registerViewFactory(
-        'webcamVideoElement', (int viewId) => _webcamVideoElement);
+      _webcamWidget =
+          HtmlElementView(key: UniqueKey(), viewType: 'webcamVideoElement');
+      // Access the webcam stream
+      window.navigator.getUserMedia(video: true).then((MediaStream stream) {
+        _webcamVideoElement.srcObject = stream;
+      });
+      MediaStream stream = _webcamVideoElement.captureStream();
+      mediaRecorder = MediaRecorder(stream);
 
-    _webcamWidget =
-        HtmlElementView(key: UniqueKey(), viewType: 'webcamVideoElement');
-    // Access the webcam stream
-    window.navigator.getUserMedia(video: true).then((MediaStream stream) {
-      _webcamVideoElement.srcObject = stream;
-    });
+      mediaRecorder.addEventListener('dataavailable', (event) {
+        print("DATA");
+        var blobEvent = event as BlobEvent;
+        if (blobEvent.data != null) {
+          setState(() {
+            videoChunks.add(blobEvent.data!);
+          });
+        }
+      });
+
+      mediaRecorder.addEventListener('stop', (event) {
+        print("DATA");
+        Blob videoBlob = Blob(videoChunks, 'video/mp4');
+        String videoUrl = Url.createObjectUrlFromBlob(videoBlob);
+
+        print(videoUrl);
+
+        setState(() {
+          videoChunks.clear();
+        });
+      });
+    }
   }
 
   @override
@@ -122,31 +161,33 @@ class _ScreenState extends State<Screen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_isReady) {
-      return Container(color: Colors.white);
-    }
-
     if (_firstRun) {
-      if (kIsWeb && _webcamVideoElement.videoHeight != 0) {
+      if (kIsWeb) {
         _webcamVideoElement.play();
         _webcamVideoElement.style
           ..width = '100%'
           ..height = '100%'
           ..objectFit = 'cover';
-
-        _firstRun = false;
+        setState(() {
+          _firstRun = false;
+        });
       }
     }
 
     return Scaffold(
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
-          SizedBox(
-            height: height,
-            width: width,
-            child: _webcamWidget,
-          ),
-          detecting
+          _firstRun || !_isReady
+              ? const Center(
+                  child: CircularProgressIndicator(
+                      color: Colors.grey, strokeWidth: 1.0))
+              : SizedBox(
+                  height: height,
+                  width: width,
+                  child: _webcamWidget,
+                ),
+          timer > 1
               ? Positioned(
                   left: coordinates[0],
                   top: coordinates[1],
@@ -326,21 +367,28 @@ class _ScreenState extends State<Screen> {
                                         pausedCapturing = false;
                                       }
                                     }),
-                                    onPanCancel: () {
-                                      setState(() {
-                                        if (video) {
-                                          capturing = !capturing;
-                                          buttonHold = false;
+                                    onPanCancel: () async {
+                                      if (video) {
+                                        if (capturing) {
+                                          capturing = false;
+                                          mediaRecorder.start();
                                         } else {
-                                          if (capturing) {
-                                            capturing = false;
-                                          } else {
-                                            buttonHold = false;
-                                            ScreenVM().captureFrame(
-                                                _webcamVideoElement);
-                                          }
+                                          capturing = true;
+                                          mediaRecorder.stop();
                                         }
-                                      });
+                                        buttonHold = false;
+                                      } else {
+                                        buttonHold = false;
+                                        if (kIsWeb) {
+                                          Uint8List? frame =
+                                              await ScreenVM.captureFrame(
+                                                  _webcamVideoElement);
+                                          Utils.saveImageBytes(
+                                              frame, "image.jpg");
+                                        }
+                                      }
+
+                                      setState(() {});
                                     },
                                     onLongPressStart: !video
                                         ? (D) {
