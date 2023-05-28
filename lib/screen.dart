@@ -1,6 +1,7 @@
 import 'dart:math';
-import 'dart:ui';
-
+// ignore: avoid_web_libraries_in_flutter
+import 'dart:html';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
@@ -26,28 +27,41 @@ class _ScreenState extends State<Screen> {
 
   CameraController? controller;
 
+  late Widget _webcamWidget;
+
+  late VideoElement _webcamVideoElement;
+
   bool _isReady = true;
   bool detecting = false;
   bool buttonHold = false;
   bool video = false;
   bool capturing = false;
   bool pausedCapturing = false;
+  bool _firstRun = true;
 
   double height = 0;
   double width = 0;
-  List<double> coordinates = [0, 0, 0, 0, 0];
+  List coordinates = [0, 0, 0, 0, 0];
 
   String label = "";
 
   @override
   void initState() {
     super.initState();
-    fetchData();
+    initCam();
     if (!kIsWeb) init();
   }
 
+  @override
+  void didChangeDependencies() {
+    width = MediaQuery.sizeOf(context).width;
+    height = MediaQuery.sizeOf(context).height;
+    fetchData();
+    super.didChangeDependencies();
+  }
+
   void fetchData() {
-    ScreenVM.updateCoordinates();
+    ScreenVM.updateCoordinates(_webcamVideoElement, [height, width]);
     ScreenVM.getDetecting.listen((value) {
       setState(() {
         detecting = value;
@@ -84,6 +98,22 @@ class _ScreenState extends State<Screen> {
     });
   }
 
+  initCam() {
+    _webcamVideoElement = VideoElement();
+    _webcamVideoElement.style.width = "100%";
+    _webcamVideoElement.style.height = "100%";
+
+    ui.platformViewRegistry.registerViewFactory(
+        'webcamVideoElement', (int viewId) => _webcamVideoElement);
+
+    _webcamWidget =
+        HtmlElementView(key: UniqueKey(), viewType: 'webcamVideoElement');
+    // Access the webcam stream
+    window.navigator.getUserMedia(video: true).then((MediaStream stream) {
+      _webcamVideoElement.srcObject = stream;
+    });
+  }
+
   @override
   void dispose() {
     controller?.dispose();
@@ -92,22 +122,29 @@ class _ScreenState extends State<Screen> {
 
   @override
   Widget build(BuildContext context) {
-    width = MediaQuery.sizeOf(context).width;
-    height = MediaQuery.sizeOf(context).height;
-
     if (!_isReady) {
-      return const Text("Failed");
+      return Container(color: Colors.white);
     }
+
+    if (_firstRun) {
+      if (kIsWeb && _webcamVideoElement.videoHeight != 0) {
+        _webcamVideoElement.play();
+        _webcamVideoElement.style
+          ..width = '100%'
+          ..height = '100%'
+          ..objectFit = 'cover';
+
+        _firstRun = false;
+      }
+    }
+
     return Scaffold(
       body: Stack(
         children: [
-          Container(
+          SizedBox(
             height: height,
             width: width,
-            decoration: const BoxDecoration(
-              image: DecorationImage(
-                  image: AssetImage("fake_data.jpeg"), fit: BoxFit.cover),
-            ),
+            child: _webcamWidget,
           ),
           detecting
               ? Positioned(
@@ -230,9 +267,9 @@ class _ScreenState extends State<Screen> {
                     flex: 2,
                     child: ClipRect(
                       child: BackdropFilter(
-                        filter: ImageFilter.blur(
+                        filter: ui.ImageFilter.blur(
                           sigmaX: 5,
-                          sigmaY: 5,
+                          sigmaY: 10,
                         ),
                         child: Container(
                           color: Colors.black.withOpacity(0.75),
@@ -289,18 +326,22 @@ class _ScreenState extends State<Screen> {
                                         pausedCapturing = false;
                                       }
                                     }),
-                                    onPanCancel: () => setState(() {
-                                      if (video) {
-                                        capturing = !capturing;
-                                        buttonHold = false;
-                                      } else {
-                                        if (capturing) {
-                                          capturing = false;
-                                        } else {
+                                    onPanCancel: () {
+                                      setState(() {
+                                        if (video) {
+                                          capturing = !capturing;
                                           buttonHold = false;
+                                        } else {
+                                          if (capturing) {
+                                            capturing = false;
+                                          } else {
+                                            buttonHold = false;
+                                            ScreenVM().captureFrame(
+                                                _webcamVideoElement);
+                                          }
                                         }
-                                      }
-                                    }),
+                                      });
+                                    },
                                     onLongPressStart: !video
                                         ? (D) {
                                             setState(() {

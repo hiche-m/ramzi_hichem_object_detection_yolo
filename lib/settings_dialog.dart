@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Settings extends StatefulWidget {
   const Settings({required this.height, required this.width, super.key});
@@ -8,7 +9,41 @@ class Settings extends StatefulWidget {
   State<Settings> createState() => _SettingsState();
 }
 
+var _formkey = GlobalKey<FormState>();
+
 class _SettingsState extends State<Settings> {
+  late final SharedPreferences prefs;
+
+  late TextEditingController _ipController;
+  late TextEditingController _portController;
+  String ip = "...";
+  String port = "...";
+
+  @override
+  void initState() {
+    init();
+    _ipController = TextEditingController(text: ip);
+    _portController = TextEditingController(text: port);
+    super.initState();
+  }
+
+  init() async {
+    prefs = await SharedPreferences.getInstance();
+    setState(() {
+      ip = prefs.getString("ip") ?? "0";
+      port = prefs.getString("port") ?? "0";
+    });
+    _ipController.text = ip;
+    _portController.text = port;
+  }
+
+  @override
+  void dispose() {
+    _ipController.dispose();
+    _portController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -23,7 +58,7 @@ class _SettingsState extends State<Settings> {
         ),
         child: Column(
           children: [
-            Expanded(
+            const Expanded(
               child: FractionallySizedBox(
                 widthFactor: 0.9,
                 child: FittedBox(
@@ -36,46 +71,118 @@ class _SettingsState extends State<Settings> {
                 ),
               ),
             ),
-            Expanded(
-              flex: 5,
-              child: FractionallySizedBox(
-                widthFactor: 0.9,
-                heightFactor: 0.75,
-                child: FittedBox(
-                  fit: BoxFit.contain,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+            Form(
+              key: _formkey,
+              child: Expanded(
+                flex: 5,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Row(
                         children: [
-                          Text(
-                            "IP Adress: ",
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold),
+                          const Expanded(child: SizedBox()),
+                          const Expanded(
+                            flex: 2,
+                            child: FractionallySizedBox(
+                              heightFactor: 0.7,
+                              child: FittedBox(
+                                fit: BoxFit.contain,
+                                child: Text(
+                                  "IP Adress: ",
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
                           ),
-                          Text(
-                            "192.168.12.11",
-                            style: TextStyle(color: Colors.white),
+                          Expanded(
+                            flex: 6,
+                            child:
+                                LayoutBuilder(builder: (context, constraints) {
+                              final double fontSize =
+                                  constraints.maxHeight * 0.35;
+                              return TextFormField(
+                                controller: _ipController,
+                                style: TextStyle(
+                                    color: Colors.white, fontSize: fontSize),
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: Colors.transparent,
+                                  enabledBorder: const UnderlineInputBorder(
+                                    borderSide:
+                                        BorderSide(color: Colors.transparent),
+                                  ),
+                                  focusedBorder: const UnderlineInputBorder(
+                                    borderSide:
+                                        BorderSide(color: Colors.transparent),
+                                  ),
+                                  hintText: 'Ex: 192.168.10.12',
+                                  hintStyle: TextStyle(
+                                      color: Colors.grey.withOpacity(0.3),
+                                      fontSize: fontSize),
+                                ),
+                              );
+                            }),
                           ),
+                          const Expanded(child: SizedBox()),
                         ],
                       ),
-                      Row(
+                    ),
+                    Expanded(
+                      child: Row(
                         children: [
-                          Text(
-                            "Port: ",
-                            style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold),
+                          const Expanded(child: SizedBox()),
+                          const Expanded(
+                            flex: 2,
+                            child: FractionallySizedBox(
+                              heightFactor: 0.3,
+                              child: FittedBox(
+                                fit: BoxFit.contain,
+                                child: Text(
+                                  "Port: ",
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
                           ),
-                          Text(
-                            "5000",
-                            style: TextStyle(color: Colors.white),
-                          )
+                          Expanded(
+                            flex: 6,
+                            child:
+                                LayoutBuilder(builder: (context, constraints) {
+                              final double fontSize =
+                                  constraints.maxHeight * 0.35;
+                              return TextFormField(
+                                controller: _portController,
+                                style: TextStyle(
+                                    color: Colors.white, fontSize: fontSize),
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: Colors.transparent,
+                                  enabledBorder: const UnderlineInputBorder(
+                                    borderSide:
+                                        BorderSide(color: Colors.transparent),
+                                  ),
+                                  focusedBorder: const UnderlineInputBorder(
+                                    borderSide:
+                                        BorderSide(color: Colors.transparent),
+                                  ),
+                                  hintText: 'Ex: 5000',
+                                  hintStyle: TextStyle(
+                                      color: Colors.grey.withOpacity(0.3),
+                                      fontSize: fontSize),
+                                ),
+                              );
+                            }),
+                          ),
+                          const Expanded(child: SizedBox()),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -86,11 +193,14 @@ class _SettingsState extends State<Settings> {
                   fit: BoxFit.contain,
                   alignment: Alignment.topCenter,
                   child: Text(
-                    "192.168.12.11:5000",
-                    style: TextStyle(color: Colors.grey),
+                    "$ip:$port",
+                    style: const TextStyle(color: Colors.grey),
                   ),
                 ),
               ),
+            ),
+            const Expanded(
+              child: SizedBox(),
             ),
             Expanded(
               flex: 2,
@@ -103,7 +213,7 @@ class _SettingsState extends State<Settings> {
                       fit: BoxFit.contain,
                       child: TextButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: Text(
+                        child: const Text(
                           "Cancel",
                           style: TextStyle(
                               color: Colors.white, fontWeight: FontWeight.bold),
@@ -116,9 +226,20 @@ class _SettingsState extends State<Settings> {
                     child: FittedBox(
                       fit: BoxFit.contain,
                       child: TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: Text(
-                          "Save",
+                        onPressed: () {
+                          if (_formkey.currentState!.validate()) {
+                            _formkey.currentState!.save();
+                            setState(() {
+                              ip = _ipController.text;
+                              port = _portController.text;
+                              prefs.setString("ip", ip);
+                              prefs.setString("port", port);
+                            });
+                          }
+                          Navigator.of(context).pop();
+                        },
+                        child: const Text(
+                          "Connect",
                           style: TextStyle(
                               color: Colors.white, fontWeight: FontWeight.bold),
                         ),
