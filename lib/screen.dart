@@ -41,9 +41,12 @@ class _ScreenState extends State<Screen> {
 
   double height = 0;
   double width = 0;
+
   List coordinates = [0, 0, 0, 0, 0];
 
   String label = "";
+
+  Color colorC = Colors.green;
 
   @override
   void initState() {
@@ -65,16 +68,13 @@ class _ScreenState extends State<Screen> {
     ScreenVM.getDetecting.listen((value) {
       setState(() {
         detecting = value;
+        colorC = ScreenVM.generateRandomColor();
       });
     });
     ScreenVM.getCoordinates.listen((value) {
       setState(() {
-        coordinates = value;
-      });
-    });
-    ScreenVM.getLabel.listen((value) {
-      setState(() {
-        label = value;
+        coordinates = value["coordinates"];
+        label = value["label"];
       });
     });
   }
@@ -164,8 +164,8 @@ class _ScreenState extends State<Screen> {
                                 padding: const EdgeInsets.only(left: 10.0),
                                 child: Text(
                                   label.toUpperCase(),
-                                  style: const TextStyle(
-                                      color: Colors.green,
+                                  style: TextStyle(
+                                      color: colorC,
                                       fontWeight: FontWeight.bold),
                                 ),
                               ),
@@ -175,7 +175,7 @@ class _ScreenState extends State<Screen> {
                                   height: 25,
                                   width: 50,
                                   decoration: BoxDecoration(
-                                      color: Colors.green,
+                                      color: colorC,
                                       border:
                                           Border.all(color: Colors.transparent),
                                       borderRadius: const BorderRadius.only(
@@ -203,7 +203,7 @@ class _ScreenState extends State<Screen> {
                           child: Container(
                             decoration: BoxDecoration(
                                 border: Border.all(
-                                  color: Colors.green,
+                                  color: colorC,
                                   width: 4.0,
                                 ),
                                 borderRadius: const BorderRadius.all(

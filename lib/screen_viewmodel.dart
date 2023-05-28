@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:html';
+import 'dart:math';
 import 'dart:typed_data';
 
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class ScreenVM {
@@ -41,24 +43,19 @@ class ScreenVM {
 
   static Stream<bool> get getDetecting => _detectingController.stream;
 
-  static final StreamController<String> _labelController =
-      StreamController<String>.broadcast();
+  static final StreamController<Map> _coordinatesController =
+      StreamController<Map>.broadcast();
 
-  static Stream<String> get getLabel => _labelController.stream;
-
-  static final StreamController<List> _coordinatesController =
-      StreamController<List>.broadcast();
-
-  static Stream<List> get getCoordinates => _coordinatesController.stream;
+  static Stream<Map> get getCoordinates => _coordinatesController.stream;
 
   static updateCoordinates(
       VideoElement videoElement, List<double> screen) async {
-    double threshold = 60;
+    double threshold = 35;
     await Future.delayed(const Duration(milliseconds: 2000));
     _detectingController.add(false);
     while (true) {
       await Future.delayed(const Duration(milliseconds: 250));
-      _detectingController.add(false);
+      _detectingController.add(true);
 
       var res = await ScreenVM().captureFrame(videoElement);
       Map map = jsonDecode(res);
@@ -69,13 +66,13 @@ class ScreenVM {
         if (coordinates.last.last * 100 < threshold) {
           _detectingController.add(false);
         } else {
-          _labelController.add(labels[ys[0]]);
           List newCords = scaledCordinates(
               coordinates[0].map((number) => number * 100).toList(), screen, [
             videoElement.videoHeight.toDouble(),
             videoElement.videoWidth.toDouble()
           ]);
-          _coordinatesController.add(newCords);
+          _coordinatesController
+              .add({"coordinates": newCords, "label": labels[ys[0]]});
           _detectingController.add(true);
         }
       }
@@ -163,5 +160,22 @@ class ScreenVM {
     Uint8List bytes = base64Decode(base64);
 
     return bytes;
+  }
+
+  static Color generateRandomColor() {
+    final random = Random();
+
+    // Generate random hue value between 0 and 360
+    final hue = random.nextInt(360);
+
+    // Generate a random saturation and value
+    final saturation = random.nextDouble();
+    final value = random.nextDouble();
+
+    // Create a Color object with the generated HSV values
+    final color =
+        HSVColor.fromAHSV(1.0, hue.toDouble(), saturation, value).toColor();
+
+    return color;
   }
 }
