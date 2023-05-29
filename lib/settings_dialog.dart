@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'screen_viewmodel.dart';
+
 class Settings extends StatefulWidget {
   const Settings({required this.height, required this.width, super.key});
   final double height;
@@ -16,25 +18,23 @@ class _SettingsState extends State<Settings> {
 
   late TextEditingController _ipController;
   late TextEditingController _portController;
-  String ip = "...";
-  String port = "...";
 
   @override
   void initState() {
     init();
-    _ipController = TextEditingController(text: ip);
-    _portController = TextEditingController(text: port);
+    _ipController = TextEditingController(text: ScreenVM.ip);
+    _portController = TextEditingController(text: ScreenVM.port);
     super.initState();
   }
 
   init() async {
     prefs = await SharedPreferences.getInstance();
     setState(() {
-      ip = prefs.getString("ip") ?? "0";
-      port = prefs.getString("port") ?? "0";
+      ScreenVM.ip = prefs.getString("ip") ?? "0";
+      ScreenVM.port = prefs.getString("port") ?? "0";
     });
-    _ipController.text = ip;
-    _portController.text = port;
+    _ipController.text = ScreenVM.ip;
+    _portController.text = ScreenVM.port;
   }
 
   @override
@@ -193,7 +193,7 @@ class _SettingsState extends State<Settings> {
                   fit: BoxFit.contain,
                   alignment: Alignment.topCenter,
                   child: Text(
-                    "$ip:$port",
+                    "${ScreenVM.ip}:${ScreenVM.port}",
                     style: const TextStyle(color: Colors.grey),
                   ),
                 ),
@@ -230,10 +230,10 @@ class _SettingsState extends State<Settings> {
                           if (_formkey.currentState!.validate()) {
                             _formkey.currentState!.save();
                             setState(() {
-                              ip = _ipController.text;
-                              port = _portController.text;
-                              prefs.setString("ip", ip);
-                              prefs.setString("port", port);
+                              ScreenVM.ip = _ipController.text;
+                              ScreenVM.port = _portController.text;
+                              prefs.setString("ip", ScreenVM.ip);
+                              prefs.setString("port", ScreenVM.port);
                             });
                           }
                           Navigator.of(context).pop();

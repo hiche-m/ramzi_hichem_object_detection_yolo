@@ -41,7 +41,10 @@ class ScreenVM {
 
   static Stream<Map> get getCoordinates => _coordinatesController.stream;
 
-static List originalCoordinates = [];
+  static List originalCoordinates = [];
+
+  static String ip = '127.0.0.1';
+  static String port = '4500';
 
   static updateCoordinates(
       VideoElement videoElement, List<double> screen) async {
@@ -126,7 +129,7 @@ static List originalCoordinates = [];
   }
 
   static Future predict(imageBytes) async {
-    final url = Uri.parse('http://127.0.0.1:4500/predict');
+    final url = Uri.parse('http://$ip:$port/predict');
 
     // Create the multipart request
     final request = http.MultipartRequest('POST', url);
