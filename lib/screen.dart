@@ -130,7 +130,6 @@ class _ScreenState extends State<Screen> {
       mediaRecorder = MediaRecorder(stream);
 
       mediaRecorder.addEventListener('dataavailable', (event) {
-        print("DATA");
         var blobEvent = event as BlobEvent;
         if (blobEvent.data != null) {
           setState(() {
@@ -140,12 +139,14 @@ class _ScreenState extends State<Screen> {
       });
 
       mediaRecorder.addEventListener('stop', (event) {
-        print("DATA");
         Blob videoBlob = Blob(videoChunks, 'video/mp4');
         String videoUrl = Url.createObjectUrlFromBlob(videoBlob);
 
-        print(videoUrl);
-
+        final anchor = AnchorElement()
+          ..href = videoUrl
+          ..download = "video.mp4";
+        anchor.click();
+        Url.revokeObjectUrl(videoUrl);
         setState(() {
           videoChunks.clear();
         });
@@ -371,20 +372,17 @@ class _ScreenState extends State<Screen> {
                                       if (video) {
                                         if (capturing) {
                                           capturing = false;
-                                          mediaRecorder.start();
+                                          mediaRecorder.stop();
                                         } else {
                                           capturing = true;
-                                          mediaRecorder.stop();
+                                          mediaRecorder.start();
                                         }
                                         buttonHold = false;
                                       } else {
                                         buttonHold = false;
                                         if (kIsWeb) {
-                                          Uint8List? frame =
-                                              await ScreenVM.captureFrame(
-                                                  _webcamVideoElement);
-                                          Utils.saveImageBytes(
-                                              frame, "image.jpg");
+                                          await ScreenVM.captureFrame(
+                                              _webcamVideoElement);
                                         }
                                       }
 

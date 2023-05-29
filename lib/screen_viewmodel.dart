@@ -41,6 +41,8 @@ class ScreenVM {
 
   static Stream<Map> get getCoordinates => _coordinatesController.stream;
 
+static List originalCoordinates = [];
+
   static updateCoordinates(
       VideoElement videoElement, List<double> screen) async {
     double threshold = 60;
@@ -51,6 +53,7 @@ class ScreenVM {
       var res = await predict(frame);
       Map map = jsonDecode(res);
       var coordinates = map["coordinates"] ?? [];
+      originalCoordinates = coordinates;
       var ys = map["labels"] ?? [];
 
       if (coordinates.length > 0 && ys.length > 0) {

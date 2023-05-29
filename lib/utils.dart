@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:html';
 import 'dart:math';
 import 'dart:typed_data';
-import 'dart:html';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+
+import 'screen_viewmodel.dart';
 
 class Utils {
   static Future<Uint8List> createImageFromDataUrl(String imageDataUrl) async {
@@ -31,8 +34,38 @@ class Utils {
     return color;
   }
 
-  static void saveImageBytes(Uint8List bytes, String fileName) {
-    final blob = Blob([bytes], 'image/jpg');
+  static Future saveImageBytes(Uint8List bytes, String fileName) async {
+    final image = await decodeImageFromList(bytes);
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(
+        recorder,
+        Rect.fromPoints(const Offset(0, 0),
+            Offset(image.width.toDouble(), image.height.toDouble())));
+
+    canvas.drawImage(image, const Offset(0, 0), Paint());
+
+    final paint = Paint()
+      ..color = generateRandomColor().withOpacity(0)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.0;
+    canvas.drawRect(
+        Rect.fromLTWH(
+            ScreenVM.originalCoordinates[0],
+            ScreenVM.originalCoordinates[3],
+            (ScreenVM.originalCoordinates[0] - ScreenVM.originalCoordinates[2]),
+            (ScreenVM.originalCoordinates[1] -
+                ScreenVM.originalCoordinates[3])),
+        paint);
+
+// End recording and obtain the image
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(image.width, image.height);
+    // Convert the image to bytes
+    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+    if (byteData == null) return null;
+    final res = byteData.buffer.asUint8List();
+
+    final blob = Blob([res], 'image/jpg');
     final url = Url.createObjectUrlFromBlob(blob);
     final anchor = AnchorElement()
       ..href = url
